@@ -1,0 +1,449 @@
+================================================================
+NARRATIVE LOGIC & TAGGING SYSTEM - FULL DOCUMENTATION
+================================================================
+Author: Mikey Turner
+Project: Narrative Logic & Tagging System
+Last Updated: 03/04/2026
+================================================================
+
+OVERVIEW
+----------------------------------------------------------------
+This is a tag-driven narrative logic system build in Unity using
+ScriptableObjects. It is designed to allow the implementation of
+dialogue, audio, and character data without writing any code.
+Everything connects through three core systems:
+
+	1. GameState	- Stores global flags
+	2. Conditions	- Used to check flags
+	3. Triggers	- Changes GameState or fires events
+
+All three systems are explained in full below.
+
+
+================================================================
+PART 1: GAME STATE (FLAGS)
+================================================================
+
+GameState is a Singleton that stores key/value pairs called flags.
+These flags represent the current state of the game world.
+
+Examples:
+	FoundMark = true
+	Time = Night
+	CluesFound = 14
+
+
+All flags are globally accessible. Any script anywhere in the project
+can read or write to then using:
+
+	GameState.Instance.SetFlag("FlagName", value);
+	GameState.Instance.GetFlag<object>("FlagName");
+	GameState.Instance.HasFlag("FlagName");
+
+You will rarely need to call these directly, as the trigger system can
+be used to set flags through ScriptableObjects instead.
+
+
+================================================================
+PART 2: CONDITIONS
+================================================================
+
+Conditions check whether a flag matches an expected value.
+They are used to control whether dialogue lines appear,
+if a choice is available, and is content can be shown.
+
+CONDITION FIELDS:
+	Name Of Flag	- the flag to check ("FoundMark")
+	Expected Value	- the value to compare against ("true")
+
+
+IMPORTANT: Expected Value should always be a string, even when
+working with Booleans.
+	Use "true" or "false", not the Boolean type
+	Use "1" or "10" when writing numbers
+
+
+HOW CONDITIONS WORK:
+	- If the flag exists and matches Expected Value, the
+	condition passes.
+	- If the flag does not exist, it is treated as "false"
+	- This means you can check for the absence of a flag
+	by setting Expected Value to "false"
+
+
+CONDITIONS ARE NOT STANDALONE ASSETS. They are added directly inside
+the "Conditions" list on ScriptableObjects whenever they are applicable.
+
+
+================================================================
+PART 3: TRIGGERS
+================================================================
+
+Triggers are ScriptableObjects assets that do something when fired.
+They are the main way you change the Game State or fire events.
+
+All triggers live in:
+	Assets/_Project/ScriptableObjects/Triggers/
+
+
+NAMING CONVENTION:
+	TriggerType_Target
+	Example: SetFlag_FoundMark
+	Example: PlayMusic_MUS_Tension
+	Example: ShowDialogue_DLG_001
+	Example: ChangeExpression_Charlie_Shocked
+
+----------------------------------------------------------------
+CURRENTLY AVAILABLE TRIGGERS
+----------------------------------------------------------------
+
+All ScriptableObject triggers are created like this:
+	Right Click > Create > Triggers > "Name of trigger"
+
+1. Set Flag
+	Script: SetFlag.cs
+	Purpose: Sets a flag in the GameState
+	Fields:
+		NameOfFlag - the flag name ("FoundMark")
+		Value - the value to set ("true")
+
+2. Show Dialogue
+	Script: ShowDialogue.cs
+	Purpose: Starts a dialogue chain from a given DialoguLineSO (ScriptableObject)
+	Fields:
+		FirstLine - The DialougeLineSO to start from
+
+3. Play Music
+	Script: PlayMusic.cs
+	Purpose: Plays a music track through the AudioManager
+	Fields:
+		Clip - the AudioClip to play
+		Loop - tick for looping music, untick for oneshot
+
+4. Play SFX
+	Script: PlaySFX.cs
+	Purpose: Plays a sound effect though the AudioManager
+	Fields:
+		Clip - the AudioClip to play
+
+5. Stop Music
+	Script: StopMusic.cs
+	Purpose: Stops whatever music is currently playing
+	Fields: None
+
+6. ChangeExpression
+	Script: ChangeExpression.cs
+	Purpose: Swaps the character sprite displayed in the dialogue UI
+	Fields:
+		Expression - the sprite to display
+
+----------------------------------------------------------------
+ADDING NEW TRIGGERS
+----------------------------------------------------------------
+
+To add a new trigger type:
+	1. Create a new script that extends TriggerActionSO
+	2. Add [CreateAssetMenu] at the top
+	3. Define your public fields
+	4. Implement the Execute() method
+
+
+Example template:
+
+	[CreateAssetMenu(menuName = "Triggers/NameOfTrigger")]
+	public class NameOfTrigger : TriggerActionSO
+	{
+		public string String;
+
+		public override void Execute()
+		{
+			// Logic
+		}
+	}
+
+
+================================================================
+PART 4: TRIGGER METHODS (HOW TRIGGERS ARE FIRED)
+================================================================
+
+The triggers don't do anything on their own, they need a trigger
+method to fire them. Add trigger methods are implemented the same,
+being:
+
+	- Add TriggerMethod component to any GameObject
+	- Add triggers to its TriggerActions list
+	- All triggers inside list will fire when scene
+	starts
+
+
+There are currently 3 trigger methods:
+
+1. On Start
+	Script: OnStart.cs
+	Purpose: Fires triggers 
+
+2. On Click (UI)
+	Script: OnClick.cs
+	Purpose: Fires triggers when a UI Button is clicked
+
+3. On Click World
+	Script: OnClickWorld.cs
+	Purpose: Fires triggers when a world space object is slicked
+
+
+================================================================
+PART 5: DIALOGUE SYSTEM
+================================================================
+
+The dialogue system is built around DialogueLineSO assets. Each
+asset represents a single line of dialogue.
+
+All dialogue assets live in:
+	Assets/_Project/ScriptableObjects/Dialogue/
+
+
+NAMING CONVENTION:
+	DLG_001, DLG_002, DLG_003...
+	Increment the number for each new line
+
+----------------------------------------------------------------
+DIALOGUE LINE SO FIELDS
+----------------------------------------------------------------
+
+ID		- identifier string (e.g. "DLG_001")
+Character	- drag in a CharacterSO for who is speaking
+Text		- what the character says
+Conditions	- list of conditions that must pass to show this line
+		  if conditions fail, the line is skipped
+
+Triggers	- list of triggers that fire when this line shows
+Choices		- list of ChoiceSO assets (leave empty for linear dialogue)
+Next		- the next DialogueLineSO in the chain
+		  leave empty if this is the last line
+
+----------------------------------------------------------------
+HOW TO CREATE A DIALOGUE CHAIN
+----------------------------------------------------------------
+ 
+Inside Assets/_Project/ScriptableObjects/Dialogue/
+
+1. Right Click > Create > Dialogue > DialogueLine
+2. Name it DLG_001
+3. Fill in the fields
+4. Create another named DLG_002
+5. Drag DLG_002 into the Next field of DLG_001
+6. Repeat for as many lines as needed
+
+Inside Assets/_Project/ScriptableObjects/Triggers/
+
+7. Create a ShowDialogue trigger SO pointing to DLG_001
+
+Inside a GameObject
+
+8. Add a trigger method to the GameObject
+9. Add ShowDialogue trigger to the TriggerActions list inside the trigger
+method inspector
+
+----------------------------------------------------------------
+CONDITIONAL DIALOGUE LINES
+----------------------------------------------------------------
+
+If a line has conditions, it will be skipped if those conditions
+fail. The system will automatically move to the next line.
+
+Example:
+	DLG_005 has condition: FoundMark == true
+	If FoundMark is false, DLG_005 is skipped and DLG_006
+	shows instead.
+
+----------------------------------------------------------------
+DIALOGUE MANAGER
+----------------------------------------------------------------
+
+The DialogueManager is a Singleton that handles all dialogue display
+logic automatically.
+
+Inspector fields that must be assigned:
+	DialoguePanel 		- the UI panel GameObject
+	Character 		- the CharacterSO
+	DialogueText 		- TMP text for the dialogue
+	NextButton 		- the button to advance dialogue
+	ChoiceContainer 	- the GameObject holding choice buttons
+	ChoiceButtonTemplate 	- the template button for choices
+	CharacterImage 		- the UI image for character sprites
+
+
+================================================================
+PART 6: CHOICES SYSTEM
+================================================================
+
+Choices are ChoiceSO assets that sit inside a DialogueLineSO's
+choice list.
+
+
+NAMING CONVENTION:
+	CHO_Description
+	Example: CHO_LookInCrack_Yes
+	Example: CHO_TakeCheese_No
+
+----------------------------------------------------------------
+CHOICE SO FIELDS
+----------------------------------------------------------------
+
+ChoiceText	- the text shown on the button
+Conditions	- conditions that must pass for this choice to appear,
+		  leave empty to always show choice
+
+Triggers	- triggers that fire when the choice is picked
+NextLine	- the DialogueLineSO this choice leads to
+
+----------------------------------------------------------------
+HOW TO CREATE A BRANCHING CHOICE
+----------------------------------------------------------------
+
+1. Create a DialogueLineSO for the line that presents the choice
+
+Inside Assets/_Project/ScriptableObjects/Dialogue/Choices
+
+2. Right Click > Create > Dialogue > Choice
+3. Fill in Choice Text, Triggers, and Next Line
+4. Create another ChoiceSO for the second option
+5. Drag both ChoiceSOs into the Choices list on the DialogueLineSO
+6. Leave the Next field on the DialogueLineSO empty
+
+
+CONDITIONAL CHOICES:
+	Add conditions to a ChoiceSO to hide it unless those
+	conditions pass.
+	Example: Only show "Lead rat with cheese" if TookCheese == true
+
+	Leaving conditions blank on a choice allows it to always appear
+
+
+================================================================
+PART 7: CHARACTER SYSTEM
+================================================================
+
+Characters are CharacterSO assets that hold the characters
+default sprite.
+
+All character assets live in
+	Assets/_Project/ScriptableObjects/Characters/
+
+----------------------------------------------------------------
+CHARACTER SO FIELDS
+----------------------------------------------------------------
+
+Default Sprite	- the sprite shown when no expression is set
+
+----------------------------------------------------------------
+CHANGING EXPRESSIONS
+----------------------------------------------------------------
+
+Expressions are changed through the ChangeExpression trigger.
+Create a new ChangeExpression SO for each expression you need.
+
+
+NAMING CONVENTION:
+	ChangeExpression_CharacterName_Emotion
+	Example: ChangeExpression_Charlie_Shocked
+	Example: ChangeExpression_Angel_Angry
+
+Add it to the triggers list on any DialogueLineSO or ChoiceSO
+to change the expression when the line is shown/choice is chosen.
+
+The expression resets to default at the start of every new line
+
+
+================================================================
+PART 8: AUDIO SYSTEM
+================================================================
+
+Audio is controlled entirely through triggers. The AudioManager
+singleton handles all playback.
+
+All audio files live in:
+	Assets/_Audio/Music/
+	Assets/_Audio/SFX/
+
+All audio trigger SO assets live in:
+	Assets/_Project/ScriptableObjects/Triggers/
+
+
+NAMING CONVENTION FOR AUDIO FILES:
+	MUS_TrackName	("MUS_Tension")
+	SFX_SoundName	("SFX_Bang")
+
+The AudioManager has two AudioSouce components:
+	MusicSource	- for looping background music
+	SFXSource	- for one shot sound effects
+
+Music tracks stop each other. Only one music track plays at a time.
+SFX can overlap freely using PlayOneShot.
+
+
+================================================================
+PART 9: EXTENDING THE SYSTEM
+================================================================
+
+TO ADD A NEW TRIGGER TYPE:
+	See Part 3 - Adding new triggers
+
+TO ADD A NEW TRIGGER METHOD:
+	Create a MonoBehaviour with a List<TriggerActionSO>
+	Call TriggerManager.Instance.Execute(TriggerActions) when needed
+	Follow the pattern of other TriggerMethods
+
+TO ADD A NEW MANAGER:
+	Follow the Singleton pattern used by other managers (GameState,
+	DialogueManager, TriggerManager and AudioManager):
+
+	public static ManagerName Instance;
+	
+    	void Awake()
+    	{
+        	if (Instance == null)
+        	{
+            		Instance = this;
+        	} else
+        	{
+            		Destroy(gameObject);
+        	}
+    	}
+
+	Add the GameObject under _Managers in the hierarchy and name
+	it appropriately
+
+
+================================================================
+END OF DOCUMENTATION
+================================================================
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
