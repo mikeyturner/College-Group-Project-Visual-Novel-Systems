@@ -1,0 +1,9 @@
+Assets/TextMesh\ Pro/** linguist-vendored
+Assets/Plugins/** linguist-vendored
+
+Packages/** linguist-vendored
+*.shader linguist-detectable=false
+*.cginc linguist-detectable=false
+*.hlsl linguist-detectable=false
+*.glsl linguist-detectable=false
+*.compute linguist-detectable=false
